@@ -43,8 +43,8 @@ FP_list = [0.1]
 rule_num_list = [20]
 rc_list = [1]
 rc_e_list = [1]
-rc_p_list = [1e-2,1e-1,1,1e1, 1e2]
-rc_z_list = [1e-2,1e-1,1,1e1, 1e2]
+rc_p_list = [1e-2, 1e-1, 1, 1e1, 1e2]
+rc_z_list = [1e-2, 1e-1, 1, 1e1, 1e2]
 cplex_time_limit = [1800]
 param_grid = dict(rule_max_length=rule_num_list, FP_up=FP_list, rc=rc_list, rc_e=rc_e_list, rc_p=rc_p_list,
                   rc_z=rc_z_list, cpx_timelimit=cplex_time_limit)
