@@ -34,7 +34,7 @@ class drugClassifier(BaseEstimator, ClassifierMixin):
         self.m_ = m
         self.n_ = n
         X = X.values.tolist()
-        # Positive and zero split                                                                                                                                                                                                                                                                                                                                                                                                                                                      
+        # Positive and zero split
         P = [i for i in range(len(y)) if y[i] == 1]
         Z = [i for i in range(len(y)) if i not in P]
         # FN_up and FP_up are in percentage. We should convert them to get the
@@ -43,7 +43,7 @@ class drugClassifier(BaseEstimator, ClassifierMixin):
             self.FN_up = self.FN_up * len(P)
         if self.FP_up is not None:
             self.FP_up  = self.FP_up * len(Z)
-        # cplex IP problem setup                                                                                                                                                                                                                                                                                                                                                                                                                                                       
+        # cplex IP problem setup                                                                                                          
         p_obj = [self.rc] * n + [self.rc_e * self.rc_p] * len(P) + [self.rc_e * self.rc_z] * len(Z)
         p_lb = [0] * n + [0] * m
         p_ub = [1] * n + [1] * m
@@ -85,6 +85,8 @@ class drugClassifier(BaseEstimator, ClassifierMixin):
             rows.append(copy.copy([row_ez_name, row_ez_value]))
         # ----------------------------------------------------------                                                                                                                                                                                                                                                                                                                                                                                                                   
         prob.linear_constraints.add(lin_expr=rows, senses=p_sense, rhs=p_rhs, names=p_rownames)
+        
+        # Cplex log! Uncomment if you do not want to see them.
         #prob.set_log_stream(None)
         #prob.set_error_stream(None)
         #prob.set_warning_stream(None)
@@ -96,7 +98,7 @@ class drugClassifier(BaseEstimator, ClassifierMixin):
         # "-1.2184445573610454e-13". Therefore we set prob.solution.get_values(v) >= 0.5. 
         self.w_solution_ = [int(v[1:]) for v in prob.variables.get_names() if
                             v[0] == 'w' and prob.solution.get_values(v) >= 0.5]
-        print(self.w_solution_)
+        #print(self.w_solution_)
         print('------------------------------------------------')
         print(len(self.w_solution_))
         return self
