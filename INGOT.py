@@ -1,10 +1,6 @@
 import pulp as pl
-import os
 import numpy as np
 from sklearn.base import BaseEstimator, ClassifierMixin
-from sklearn.metrics import balanced_accuracy_score
-
-from group_testing.generate_test_results import gen_test_vector
 import group_testing.utils as utils
 
 
@@ -13,11 +9,10 @@ class INGOTClassifier(BaseEstimator, ClassifierMixin):
     A class to represent INGOT-DR classifier
     """
 
-    def __init__(self, w_weight=1, lambda_p=1, lambda_n=1, lambda_e=1, false_positive_rate_lower_bound=None,
-                 false_negative_rate_lower_bound=None, max_rule_size=None, rounding_threshold=1e-5,
-                 defective_num_lower_bound=None,
+    def __init__(self, w_weight=1, lambda_p=1, lambda_n=1, lambda_e=1, false_positive_rate_upper_bound=None,
+                 false_negative_rate_upper_bound=None, max_rule_size=None, rounding_threshold=1e-5,
                  lp_relaxation=False, only_slack_lp_relaxation=False, lp_rounding_threshold=0,
-                 is_it_noiseless=True, solver_name=None, solver_options=None):
+                 is_it_noiseless=False, solver_name='PULP_CBC_CMD', solver_options=None):
         """
         Constructs all the necessary attributes for the decoder object.
         Parameters:
@@ -25,11 +20,10 @@ class INGOTClassifier(BaseEstimator, ClassifierMixin):
             lambda_p (int): Regularization coefficient for positive labels. Default to 1.
             lambda_n (int): Regularization coefficient for negative labels. Default to 1.
             lambda_e (int): Regularization coefficient for slack variables. Default to 1.
-            false_positive_rate_lower_bound (float): False positive rate(FPR) lower bound. Default to None.
-            false_negative_rate_lower_bound (float): False negative rate(FNR) lower bound. Default to None.
+            false_positive_rate_upper_bound (float): False positive rate(FPR) upper bound. Default to None.
+            false_negative_rate_upper_bound (float): False negative rate(FNR) upper bound. Default to None.
             max_rule_size (int): Maximum rule size. Default to None.
             rounding_threshold (float): Threshold for ilp solutions for Rounding to 0 and 1. Default to 1e-5
-            defective_num_lower_bound (int): lower bound for number of infected people. Default to None.
             lp_relaxation (bool): A flag to use the lp relaxed version. Default to False.
             only_slack_lp_relaxation (bool): A flag to only use the lp relaxed slack variables. Default to False.
             lp_rounding_threshold (float): Threshold for lp solutions for Rounding to 0 and 1. Default to 0.
@@ -47,11 +41,10 @@ class INGOTClassifier(BaseEstimator, ClassifierMixin):
             self.w_weight = w_weight
         except AssertionError:
             print("w_weight should be either int, float or list of numbers")
-        self.false_positive_rate_lower_bound = false_positive_rate_lower_bound
-        self.false_negative_rate_lower_bound = false_negative_rate_lower_bound
+        self.false_positive_rate_upper_bound = false_positive_rate_upper_bound
+        self.false_negative_rate_upper_bound = false_negative_rate_upper_bound
         self.max_rule_size = max_rule_size
         self.rounding_threshold = rounding_threshold
-        self.defective_num_lower_bound = defective_num_lower_bound
         self.lp_relaxation = lp_relaxation
         self.only_slack_lp_relaxation = only_slack_lp_relaxation
         self.lp_rounding_threshold = lp_rounding_threshold
@@ -74,10 +67,6 @@ class INGOTClassifier(BaseEstimator, ClassifierMixin):
         label = np.array(label)
         positive_label = np.where(label == 1)[0]
         negative_label = np.where(label == 0)[0]
-        if self.false_positive_rate_lower_bound is not None:
-            self.false_positive_lower_bound = self.false_positive_rate_lower_bound * len(negative_label)
-        if self.false_negative_rate_lower_bound is not None:
-            self.false_negative_lower_bound = self.false_negative_rate_lower_bound * len(positive_label)
         # -------------------------------------
         # Checking length of w_weight
         try:
@@ -142,14 +131,32 @@ class INGOTClassifier(BaseEstimator, ClassifierMixin):
                 else:
                     p += pl.lpSum([-1 * A[i][j] * w[j] for j in range(n)] + alpha[i] * en[i]) >= 0
             # Additional constraints
-            if (self.max_rule_size is not None) and (not self.lp_relaxation):
+            if self.max_rule_size is not None:
+                assert not self.lp_relaxation, "Can not set a maximum rule size (max_rule_size) if 'lp_relaxation' is" \
+                                               " Ture! Set 'lp_relaxation' to False or 'max_rule_size' to None."
                 p += pl.lpSum([w[i] for i in range(n)]) <= self.max_rule_size
-            if self.false_negative_rate_lower_bound is not None and not self.lp_relaxation and \
-                    not self.only_slack_lp_relaxation and len(ep) != 0:
-                p += pl.lpSum(ep) <= self.false_negative_lower_bound
-            if self.false_positive_rate_lower_bound is not None and not self.lp_relaxation and \
-                    not self.only_slack_lp_relaxation and len(en) != 0:
-                p += pl.lpSum(en) <= self.false_positive_lower_bound
+            if self.false_negative_rate_upper_bound is not None and len(ep) != 0:
+                assert not self.lp_relaxation, "Can not set false negative rate upper bound (" \
+                                               "false_negative_rate_upper_bound) if 'lp_relaxation' is " \
+                                               "Ture! Set 'lp_relaxation' to False or " \
+                                               "'false_negative_rate_upper_bound' to None. "
+                assert not self.only_slack_lp_relaxation, "Can not set false negative rate upper bound (" \
+                                                          "false_negative_rate_upper_bound) if " \
+                                                          "'only_slack_lp_relaxation' is " \
+                                                          "Ture! Set 'only_slack_lp_relaxation' to False or " \
+                                                          "'false_negative_rate_upper_bound' to None. "
+                p += pl.lpSum(ep) <= self.false_negative_rate_upper_bound * len(positive_label)
+            if self.false_positive_rate_upper_bound is not None and len(en) != 0:
+                assert not self.lp_relaxation, "Can not set false positive rate upper bound (" \
+                                               "false_positive_rate_upper_bound) if 'lp_relaxation' is " \
+                                               "Ture! Set 'lp_relaxation' to False or " \
+                                               "'false_positive_rate_upper_bound' to None. "
+                assert not self.only_slack_lp_relaxation, "Can not set false positive rate upper bound (" \
+                                                          "false_positive_rate_upper_bound) if " \
+                                                          "'only_slack_lp_relaxation' is " \
+                                                          "Ture! Set 'only_slack_lp_relaxation' to False or " \
+                                                          "'false_positive_rate_upper_bound' to None. "
+                p += pl.lpSum(en) <= self.false_positive_rate_upper_bound * len(negative_label)
 
         if self.solver_options is not None:
             solver = pl.get_solver(self.solver_name, **self.solver_options)
@@ -157,7 +164,7 @@ class INGOTClassifier(BaseEstimator, ClassifierMixin):
             solver = pl.get_solver(self.solver_name)
         p.solve(solver)
         if not self.lp_relaxation:
-            p.roundSolution()
+            p.roundSolution(epsInt=self.rounding_threshold)
         # ----------------
         self.prob_ = p
         # print("Status:", pl.LpStatus[p.status])
@@ -172,9 +179,12 @@ class INGOTClassifier(BaseEstimator, ClassifierMixin):
         Returns:
             w_solutions_dict (dict): A dictionary of individuals with their status.
         """
+        assert pl.LpStatus[self.prob_.status] != 'Infeasible', "Problem is {}! Set 'is_it_noiseless'" \
+                                                               " argument to False. If there is still a problem you " \
+                                                               "should relax/change some of additional constraints." \
+                                                               "".format(pl.LpStatus[self.prob_.status])
         try:
             assert self.prob_ is not None
-            # w_solution_dict = dict([(v.name, v.varValue)
             # for v in self.prob_.variables() if variable_type in v.name and v.varValue > 0])
             # Pulp uses ASCII sort when we recover the solution. It would cause a lot of problems when we want
             # to use the solution. We need to use alphabetical sort based on variables names (v.names). To do so
@@ -195,9 +205,12 @@ class INGOTClassifier(BaseEstimator, ClassifierMixin):
         Returns:
             w_solutions (vector): A vector of decoder solution.
         """
+        assert pl.LpStatus[self.prob_.status] != 'Infeasible', "Problem is {}! Set 'is_it_noiseless'" \
+                                                               " argument to False. If there is still a problem you " \
+                                                               "should relax/change some of additional constraints." \
+                                                               "".format(pl.LpStatus[self.prob_.status])
         try:
             assert self.prob_ is not None
-            # w_solution = [v.name[2:] for v in self.prob_.variables() if v.name[0] == 'w' and v.varValue > 0]
             # Pulp uses ASCII sort when we recover the solution. It would cause a lot of problems when we want
             # to use the solution. We need to use alphabetical sort based on variables names (v.names). To do so
             # we use utils.py and the following lines of codes
@@ -219,12 +232,30 @@ class INGOTClassifier(BaseEstimator, ClassifierMixin):
         Returns:
              A vector of predicted labels.
         """
+        assert pl.LpStatus[self.prob_.status] != 'Infeasible', "Problem is {}! Set 'is_it_noiseless'" \
+                                                               " argument to False. If there is still a problem you " \
+                                                               "should relax/change some of additional constraints." \
+                                                               "".format(pl.LpStatus[self.prob_.status])
         return np.minimum(np.matmul(A, self.solution()), 1)
 
     def write(self):
         pass
+
+
 if __name__ == '__main__':
-    clf = INGOTClassifier()
-    A = np.random.randint(2, size=(2, 4))
-    y = np.random.randint(2, size=2)
-    INGOTClassifier.fit(A,y)
+    np.random.seed(1)
+    clf = INGOTClassifier(lambda_p=10, false_positive_rate_upper_bound=.5, lp_relaxation=False,
+                          only_slack_lp_relaxation=False, is_it_noiseless=False, solver_name='CPLEX_PY')
+    B = np.random.randint(2, size=(4, 5))
+    y = np.random.randint(2, size=4)
+    clf.fit(B, y)
+    print(B, y)
+    print(clf.prob_)
+    print(pl.LpStatus[clf.prob_.status])
+    print(clf.get_params_w('w'))
+    print(clf.solution())
+    print(clf.get_params_w('en'))
+    print(clf.get_params_w('ep'))
+    print(clf.predict(B))
+    print(clf.prob_.objective)
+    print(clf.score(B, y))
