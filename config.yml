@@ -1,0 +1,79 @@
+---
+TrainTestSplit:
+  random_state: &seed 33
+  test_size: 0.2
+  stratify: y
+CrossValidation:
+  cv: 5
+  # It only accept 'Accuracy' or 'balanced_accuracy' for now. Other metrics can be added if needed.
+  refit: 'balanced_accuracy'
+  n_jobs: -1
+  return_train_score: True
+  verbose: 10
+Models:
+  LR_l1:
+    module: sklearn.linear_model
+    model: LogisticRegression
+    shap_report: True
+    params:
+      penalty: 'l1'
+      random_state: *seed
+      solver: 'liblinear'
+      C: [1e-4, 1e-3, 1e-2, 1e-1, 1, 1e1, 1e2, 1e3, 1e4]
+      class_weight: 'balanced'
+  LR_l2:
+    module: sklearn.linear_model
+    model: LogisticRegression
+    shap_report: True
+    params:
+      penalty: 'l2'
+      random_state: *seed
+      n_jobs: -1
+      C: [ 1e-4, 1e-3, 1e-2, 1e-1, 1, 1e1, 1e2, 1e3, 1e4 ]
+      class_weight: 'balanced'
+  SVM_l1:
+    module: sklearn.svm
+    model: LinearSVC
+    shap_report: True
+    params:
+      penalty: 'l1'
+      dual: False
+      random_state: *seed
+      loss: ['squared_hinge']
+      C: [1e-2, 1e-1, 1, 1e1, 1e2]
+      max_iter: 2000
+      class_weight: 'balanced'
+  SVM_l2:
+    module: sklearn.svm
+    model: LinearSVC
+    shap_report: True
+    params:
+      penalty: 'l2'
+      random_state: *seed
+      loss: ['squared_hinge','hinge']
+      C: [1e-2, 1e-1, 1, 1e1, 1e2]
+      max_iter: 2000
+      class_weight: 'balanced'
+  RF:
+    module: sklearn.ensemble
+    model: RandomForestClassifier
+    shap_report: True
+    params:
+      random_state: *seed
+      n_jobs: -1
+      n_estimators: [100, 300, 500, 1000]
+      max_depth: [5, 10, 15, 30]
+      min_samples_split: [2, 5, 10, 15, 100]
+      min_samples_leaf: [1, 2, 5, 10]
+      class_weight: 'balanced'
+  INGOT:
+    module: INGOT
+    model: INGOTClassifier
+    params:
+      false_positive_rate_upper_bound: 0.1
+      lambda_p: [1e-2, 1e-1, 1, 1e1, 1e2]
+      lambda_n: [1e-2, 1e-1, 1, 1e1, 1e2]
+      max_rule_size: 20
+      solver_name: 'CPLEX_PY'
+      solver_options:
+        timelimit: 1800

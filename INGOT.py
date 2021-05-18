@@ -1,7 +1,27 @@
+import random
+
 import pulp as pl
 import numpy as np
 from sklearn.base import BaseEstimator, ClassifierMixin
-import group_testing.utils as utils
+import re
+import pandas as pd
+
+
+def atoi(text):
+    """
+        Based on a stackoverflow post:
+        https://stackoverflow.com/questions/5967500/how-to-correctly-sort-a-string-with-a-number-inside
+    """
+    return int(text) if text.isdigit() else text
+
+
+def natural_keys(text):
+    '''
+    alist.sort(key=natural_keys) sorts in human order
+    http://nedbatchelder.com/blog/200712/human_sorting.html
+    (See Toothy's implementation in the comments)
+    '''
+    return [atoi(c) for c in re.split(r'(\d+)', text)]
 
 
 class INGOTClassifier(BaseEstimator, ClassifierMixin):
@@ -14,12 +34,12 @@ class INGOTClassifier(BaseEstimator, ClassifierMixin):
                  lp_relaxation=False, only_slack_lp_relaxation=False, lp_rounding_threshold=0,
                  is_it_noiseless=False, solver_name='PULP_CBC_CMD', solver_options=None):
         """
-        Constructs all the necessary attributes for the decoder object.
+        Constructs all the necessary attributes for the classifier object.
         Parameters:
-            w_weight (vector, int, float): A vector to provide prior weight. Default to vector of ones.
+            w_weight (vector, int, float): A vector, int or float to provide prior weight. Default to vector of 1.
             lambda_p (int): Regularization coefficient for positive labels. Default to 1.
             lambda_n (int): Regularization coefficient for negative labels. Default to 1.
-            lambda_e (int): Regularization coefficient for slack variables. Default to 1.
+            lambda_e (int): Regularization coefficient for all slack variables. Default to 1.
             false_positive_rate_upper_bound (float): False positive rate(FPR) upper bound. Default to None.
             false_negative_rate_upper_bound (float): False negative rate(FNR) upper bound. Default to None.
             max_rule_size (int): Maximum rule size. Default to None.
@@ -29,7 +49,7 @@ class INGOTClassifier(BaseEstimator, ClassifierMixin):
             lp_rounding_threshold (float): Threshold for lp solutions for Rounding to 0 and 1. Default to 0.
             Range from 0 to 1.
             is_it_noiseless (bool): A flag to specify whether the problem is noisy or noiseless. Default to True.
-            solver_name (str): Solver's name provided by Pulp. Default to None.
+            solver_name (str): Solver's name provided by Pulp. Default to 'PULP_CBC_CMD'.
             solver_options (dic): Solver's options provided by Pulp. Default to None.
         """
 
@@ -52,19 +72,27 @@ class INGOTClassifier(BaseEstimator, ClassifierMixin):
         self.solver_name = solver_name
         self.solver_options = solver_options
         self.prob_ = None
+        self.features_names = None
 
     def fit(self, A, label):
         """
-        Function to a decode base of design matrix and test results
+        Function to fit the model with respect to the given data.
+
         Parameters:
-            A (binary numpy 2d-array): The group testing matrix.
-            label (binary numpy array): The vector of results of the group tests.
+            A (binary numpy 2d-array): The feature matrix.
+            label (binary numpy array): The vector of labels.
         Returns:
-            self (GroupTestingDecoder): A decoder object including decoding solution
+            self (GroupTestingDecoder): A INGOTClassifier object including the solution
         """
         m, n = A.shape
         alpha = A.sum(axis=1)
-        label = np.array(label)
+        if isinstance(y, (pd.core.frame.DataFrame, pd.core.series.Series)):
+            label = np.array(label).ravel()
+        else:
+            label = np.array(label)
+        if isinstance(A, (pd.core.frame.DataFrame, pd.core.series.Series)):
+            self.features_names = A.columns
+            A = A.values.tolist()
         positive_label = np.where(label == 1)[0]
         negative_label = np.where(label == 0)[0]
         # -------------------------------------
@@ -73,11 +101,10 @@ class INGOTClassifier(BaseEstimator, ClassifierMixin):
             if isinstance(self.w_weight, list):
                 assert len(self.w_weight) == n
         except AssertionError:
-            print("length of w_weight should be equal to number of individuals( numbers of columns in the group "
-                  "testing matrix)")
+            print("length of w_weight should be equal to number of features")
         # -------------------------------------
         # Initializing the ILP problem
-        p = pl.LpProblem('GroupTesting', pl.LpMinimize)
+        p = pl.LpProblem('INGOTClassifier', pl.LpMinimize)
 
         # Variables kind
         if self.lp_relaxation:
@@ -170,14 +197,14 @@ class INGOTClassifier(BaseEstimator, ClassifierMixin):
         # print("Status:", pl.LpStatus[p.status])
         return self
 
-    def get_params_w(self, variable_type='w'):
+    def get_params_dictionary(self, variable_type='w'):
         """
         Function to provide a dictionary of individuals with their status obtained by decoder.
         Parameters:
-            self (GroupTestingDecoder): Decoder object.
+            self (INGOTClassifier): Classifier object.
             variable_type (str): Type of the variable.e.g. 'w','ep' or 'en'
         Returns:
-            w_solutions_dict (dict): A dictionary of individuals with their status.
+            w_solutions_dict (dict): A dictionary of features with their values in the model.
         """
         assert pl.LpStatus[self.prob_.status] != 'Infeasible', "Problem is {}! Set 'is_it_noiseless'" \
                                                                " argument to False. If there is still a problem you " \
@@ -188,10 +215,10 @@ class INGOTClassifier(BaseEstimator, ClassifierMixin):
             # for v in self.prob_.variables() if variable_type in v.name and v.varValue > 0])
             # Pulp uses ASCII sort when we recover the solution. It would cause a lot of problems when we want
             # to use the solution. We need to use alphabetical sort based on variables names (v.names). To do so
-            # we use utils.py and the following lines of codes
+            # we use natural_keys function and the following lines of codes
             w_solution_dict = dict([(v.name, v.varValue)
                                     for v in self.prob_.variables() if variable_type in v.name])
-            index_map = {v: i for i, v in enumerate(sorted(w_solution_dict.keys(), key=utils.natural_keys))}
+            index_map = {v: i for i, v in enumerate(sorted(w_solution_dict.keys(), key=natural_keys))}
             w_solution_dict = {k: v for k, v in sorted(w_solution_dict.items(), key=lambda pair: index_map[pair[0]])}
         except AttributeError:
             raise RuntimeError("You must fit the data first!")
@@ -201,9 +228,9 @@ class INGOTClassifier(BaseEstimator, ClassifierMixin):
         """
         Function to provide a vector of decoder solution.
         Parameters:
-            self (GroupTestingDecoder): Decoder object.
+            self (INGOTClassifier): Classifier object.
         Returns:
-            w_solutions (vector): A vector of decoder solution.
+            w_solutions (vector): A vector of features values solution.
         """
         assert pl.LpStatus[self.prob_.status] != 'Infeasible', "Problem is {}! Set 'is_it_noiseless'" \
                                                                " argument to False. If there is still a problem you " \
@@ -213,9 +240,9 @@ class INGOTClassifier(BaseEstimator, ClassifierMixin):
             assert self.prob_ is not None
             # Pulp uses ASCII sort when we recover the solution. It would cause a lot of problems when we want
             # to use the solution. We need to use alphabetical sort based on variables names (v.names). To do so
-            # we use utils.py and the following lines of codes
-            w_solution = self.get_params_w()
-            index_map = {v: i for i, v in enumerate(sorted(w_solution.keys(), key=utils.natural_keys))}
+            # we use natural_keys function and the following lines of codes
+            w_solution = self.get_params_dictionary(variable_type='w')
+            index_map = {v: i for i, v in enumerate(sorted(w_solution.keys(), key=natural_keys))}
             w_solution = [v for k, v in sorted(w_solution.items(), key=lambda pair: index_map[pair[0]])]
             if self.lp_relaxation:
                 w_solution = [1 if i > self.lp_rounding_threshold else 0 for i in w_solution]
@@ -236,26 +263,66 @@ class INGOTClassifier(BaseEstimator, ClassifierMixin):
                                                                " argument to False. If there is still a problem you " \
                                                                "should relax/change some of additional constraints." \
                                                                "".format(pl.LpStatus[self.prob_.status])
+        if isinstance(A, (pd.core.frame.DataFrame, pd.core.series.Series)):
+            A = A.values.tolist()
         return np.minimum(np.matmul(A, self.solution()), 1)
 
-    def write(self):
-        pass
+    def learned_rule(self, return_type='feature_name'):
+        """
+        Return a list of rules
+
+        Parameters:
+            return_type (str): Type of the return list. It could be list of name of features of their ids in the
+            feature matrix. Acceptable values are 'feature_name' or 'feature_id'. Default to 'feature_name'.
+
+        Return:
+            return (vector): A vector of learned rule.
+        """
+        sol = self.solution()
+        if self.features_names is not None and return_type == 'feature_name':
+            return [self.features_names[idx] for idx, i in enumerate(sol) if i > self.rounding_threshold]
+        else:
+            return [idx for idx, i in enumerate(sol) if i > self.rounding_threshold]
+
+    def write(self, fileType='mps', **kwargs):
+        """
+        Create a file from the problem
+        Parameters:
+            fileType (str): Type of the file. Possible choices: mps, lp, json, display. Default to mps.
+            kwargs (dict): additional keyword arguments for pulp writing functions. i.e writeMPS, writeLP, toJson.
+        Returns:
+            None
+        """
+        if fileType.lower() == 'mps':
+            self.prob_.writeMPS(**kwargs)
+        elif fileType.lower() == 'lp':
+            self.prob_.writeLP(**kwargs)
+        elif fileType.lower() == 'json':
+            self.prob_.toJson(**kwargs)
+        elif fileType.lower() == 'display':
+            print(self.prob_)
+        else:
+            print('fileType should be either "mps", "lp", "json" or "display". "display would print the problem on'
+                  ' the screen."')
 
 
 if __name__ == '__main__':
     np.random.seed(1)
     clf = INGOTClassifier(lambda_p=10, false_positive_rate_upper_bound=.5, lp_relaxation=False,
                           only_slack_lp_relaxation=False, is_it_noiseless=False, solver_name='CPLEX_PY')
-    B = np.random.randint(2, size=(4, 5))
-    y = np.random.randint(2, size=4)
+    B = np.random.randint(2, size=(8, 20))
+    B = pd.DataFrame(B)
+    B.columns = ['{}{}{}'.format(i,random.choice('GTAC'),random.choice('GTAC')) for i in range(20)]
+    y = np.random.randint(2, size=8)
     clf.fit(B, y)
     print(B, y)
     print(clf.prob_)
     print(pl.LpStatus[clf.prob_.status])
-    print(clf.get_params_w('w'))
+    print(clf.get_params_dictionary('w'))
     print(clf.solution())
-    print(clf.get_params_w('en'))
-    print(clf.get_params_w('ep'))
+    print(clf.get_params_dictionary('en'))
+    print(clf.get_params_dictionary('ep'))
     print(clf.predict(B))
     print(clf.prob_.objective)
     print(clf.score(B, y))
+    print(clf.learned_rule())
