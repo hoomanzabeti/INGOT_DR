@@ -14,30 +14,11 @@ from sklearn.metrics import confusion_matrix
 import pandas as pd
 from joblib import dump
 import sys
-import datetime
 import os
 import time
 import argparse
-from INGOT import INGOTClassifier
 import utils
-from DataLoader import data_loader
 
-input_drugs = sys.argv[1]
-seed = 33
-fold_number = 5
-test_size = 0.2
-cv_refit = 'balanced_accuracy'
-drugs = [input_drugs]
-FP_list = [0.1]
-rule_num_list = [20]
-rc_list = [1]
-rc_e_list = [1]
-rc_p_list = [1e-2, 1e-1, 1, 1e1, 1e2]
-rc_z_list = [1e-2, 1e-1, 1, 1e1, 1e2]
-cplex_time_limit = [1800]
-
-
-# Loading  the data for drug 'current_drug'
 
 
 def main(sysargs=sys.argv[1:]):
