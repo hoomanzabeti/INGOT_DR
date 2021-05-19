@@ -85,8 +85,8 @@ class INGOTClassifier(BaseEstimator, ClassifierMixin):
             self (GroupTestingDecoder): A INGOTClassifier object including the solution
         """
         m, n = A.shape
-        alpha = A.sum(axis=1)
-        if isinstance(y, (pd.core.frame.DataFrame, pd.core.series.Series)):
+        alpha = list(A.sum(axis=1))
+        if isinstance(label, (pd.core.frame.DataFrame, pd.core.series.Series)):
             label = np.array(label).ravel()
         else:
             label = np.array(label)

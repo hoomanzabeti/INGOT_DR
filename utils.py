@@ -180,15 +180,26 @@ def param_distributor(param_dictionary, function_name):
     return passing_param, remaining_param
 
 
-def shap_vals(model, X_train, X_test, current_model):
+def shap_vals(model, X_train, X_test, shap_kernel):
+    """
+    Returns the SHAP values of the model
+
+    Parameters:
+        model (obj): Model's object after training.
+        X_train (DataFrame,2d-array): Training data dataframe/2d-array.
+        X_test (DataFrame,2d-array): Testing data dataframe/2d-array.
+        shap_kernel (str): SHAP kernel.
+    Returns:
+        feature_importance (DataFrame): Sorted dataframe of features and their SHAP values.
+    """
     import shap
-    if current_model == 'RF':
+    if shap_kernel == 'TreeExplainer':
         shap_values = shap.TreeExplainer(model).shap_values(X_test)
         vals = np.abs(shap_values[1]).mean(0)
-    elif current_model in ['LR_l1', 'LR_l2', 'SVM_l1', 'SVM_l2']:
+    elif shap_kernel == 'LinearExplainer':
         shap_values = shap.LinearExplainer(model, X_train).shap_values(X_test)
         vals = np.abs(shap_values).mean(0)
-    elif current_model == 'SVM':
+    elif shap_kernel == 'KernelExplainer':
         X_train_summary = shap.kmeans(X_test, 50)
         shap_values = shap.KernelExplainer(model.predict_proba, X_train_summary, link="logit").shap_values(X_test,
                                                                                                            nsamples=100)
@@ -196,37 +207,84 @@ def shap_vals(model, X_train, X_test, current_model):
     feature_importance = pd.DataFrame(list(zip(X_train.columns, vals)),
                                       columns=['col_name', 'feature_importance_vals'])
     feature_importance.sort_values(by=['feature_importance_vals'], ascending=False, inplace=True)
-    print(feature_importance.head())
     return feature_importance
 
 
-def snps(rule, snp_list):
-    rule_to_snps = [snp_list[int(i)] for i in rule]
-    return rule_to_snps
-
-
 def tn(y_true, y_pred):
+    """
+    Returns number of true negatives.
+
+    Parameters:
+        y_true (narray): Numpy array of ture labels.
+        y_pred (narray): Numpy array of predicted labels.
+    Return:
+        Number of true negatives.
+    """
     return confusion_matrix(y_true, y_pred)[0, 0]
 
 
 def fp(y_true, y_pred):
+    """
+    Returns number of false positives.
+
+    Parameters:
+        y_true (narray): Numpy array of ture labels.
+        y_pred (narray): Numpy array of predicted labels.
+    Return:
+        Number of false positives.
+    """
     return confusion_matrix(y_true, y_pred)[0, 1]
 
 
 def fn(y_true, y_pred):
+    """
+    Returns number of false negatives.
+
+    Parameters:
+        y_true (narray): Numpy array of ture labels.
+        y_pred (narray): Numpy array of predicted labels.
+    Return:
+        Number of false negatives.
+    """
     return confusion_matrix(y_true, y_pred)[1, 0]
 
-
 def tp(y_true, y_pred):
+    """
+    Returns number of true positives.
+
+    Parameters:
+        y_true (narray): Numpy array of ture labels.
+        y_pred (narray): Numpy array of predicted labels.
+    Return:
+        Number of true positives.
+    """
     return confusion_matrix(y_true, y_pred)[1, 1]
 
 
 def TNR(y_true, y_pred):
+    """
+        Returns True Negative Rate.
+
+        Parameters:
+            y_true (narray): Numpy array of ture labels.
+            y_pred (narray): Numpy array of predicted labels.
+        Return:
+            True Negative Rate.
+    """
     return confusion_matrix(y_true, y_pred)[0, 0] / (confusion_matrix(y_true, y_pred)[0, 0] +
                                                      confusion_matrix(y_true, y_pred)[0, 1])
 
 
 def my_import(name):
+    """
+    *** from the python documentation  ***
+    Import a module when with submodules split by dot.
+
+    Parameters:
+        name of the module
+    Return:
+        Loaded module
+    """
     mod = __import__(name)
     components = name.split('.')
     for comp in components[1:]:
