@@ -1,9 +1,5 @@
 .idea
 RuleBasedClassifier.py
 Results
-ciprofloxacinLabel.csv
-SNPsMatrix_ciprofloxacin.csv
-models_num_of_features_and_shape.py
-ML_comparison.py
-DataLoader.py
+data
 __pycache__/
