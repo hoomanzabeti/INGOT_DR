@@ -78,21 +78,17 @@ def path_generator(file_name, file_format, dir_name=None):
     return path + local_path[1:] + "/{}.{}".format(file_name, file_format)
 
 
-def report_file_path(report_path, report_label, report_extension, params):
+def report_file_path(report_path, report_label, report_extension):
     """
     Function to create a path for report files.
     Parameters:
         report_path (path): Report file path
         report_label (str): Report file label
         report_extension (str): Report file extension. e.g. txt, csv
-        params (dict): A dictionary of parameters of the problem that the report file is corresponds to.
-         N, m, group_size, s, seed.
     Return:
         report_path: Path to the report file.
     """
-    report_path = report_path + '/{}_N{}_g{}_m{}_s{}_seed{}.{}'.format(report_label, params['N'], params['group_size'],
-                                                                       params['m'], params['s'], params['seed'],
-                                                                       report_extension)
+    report_path = report_path + '/{}.{}'.format(report_label, report_extension)
     return report_path
 
 
@@ -142,7 +138,7 @@ def result_path_generator(args):
     return current_path, result_path
 
 
-def inner_path_generator(current_path, inner_dir):
+def inner_path_generator(inner_dir, current_path=os.getcwd()):
     """
     Function to create inner subdirectories for intermediate files like design matrix.
     Parameters:
@@ -248,6 +244,7 @@ def fn(y_true, y_pred):
     """
     return confusion_matrix(y_true, y_pred)[1, 0]
 
+
 def tp(y_true, y_pred):
     """
     Returns number of true positives.
@@ -290,6 +287,10 @@ def my_import(name):
     for comp in components[1:]:
         mod = getattr(mod, comp)
     return mod
+
+
+def abs_path(file_path):
+    return os.path.join(os.getcwd(), file_path)
 
 
 if __name__ == '__main__':

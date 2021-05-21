@@ -17,16 +17,17 @@ import sys
 import os
 import time
 import argparse
-import utils
 import INGOT
 import numpy as np
+
+import utils
 
 
 def main(sysargs=sys.argv[1:]):
     parser = argparse.ArgumentParser(prog='INGOT-DR', description='Description')
     parser.add_argument(
         '--config', dest='config', metavar='FILE',
-        help='Path to the config file', required=False, default='config.yml'
+        help='Path to the config file', required=True,
     )
     parser.add_argument(
         '--output-dir', dest='output_path', metavar='DIR',
@@ -34,19 +35,19 @@ def main(sysargs=sys.argv[1:]):
     )
     parser.add_argument(
         '--data-file', dest='data_file', metavar='FILE',
-        help='Path to the input data in csv', required=False, default='SNPsMatrix_ciprofloxacin.csv'
+        help='Path to the input data in csv', required=True
     )
     parser.add_argument(
         '--label-file', dest='label_file', metavar='FILE',
-        help='Path to the label file in csv', required=False, default='ciprofloxacinLabel.csv'
+        help='Path to the label file in csv', required=True
     )
     parser.add_argument(
         '--drug-name', dest='current_drug', metavar='FILE',
-        help='Path to the label file in csv', required=False, default='ciprofloxacin'
+        help='Path to the label file in csv', required=True
     )
     parser.add_argument(
         '--model-name', dest='current_model', metavar='FILE',
-        help='Path to the label file in csv', required=False, default='INGOT'
+        help='Path to the label file in csv', required=True
     )
     args = parser.parse_args()
     current_drug = args.current_drug
@@ -56,9 +57,9 @@ def main(sysargs=sys.argv[1:]):
     print_val(current_model)
     current_path, result_path = utils.result_path_generator(args)
     config_file = utils.config_reader(args.config)
-    print_val('Loading Data')
+    print_val('Loading data')
     X = pd.read_csv(args.data_file, index_col=0)
-    print('Data file shape: {}'.format(X.shape))
+    print('data file shape: {}'.format(X.shape))
     y = pd.read_csv(args.label_file, index_col=0).to_numpy().ravel()
     print('Label file shape: {}'.format(y.shape))
     print('Label ratio: R: {}, S: {}'.format(len(np.where(y == 1)[0]), len(np.where(y == 0)[0])))
