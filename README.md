@@ -7,11 +7,11 @@
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import balanced_accuracy_score
 import pandas as pd
-from INGOT import INGOTClassifier
+import ingot
 
 X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=33, test_size=0.2, stratify=y)
 
-clf = INGOTClassifier()
+clf = ingot.INGOTClassifier()
 clf.fit(X_train,y_train)
 
 y_pred = clf.predict(X_test)
