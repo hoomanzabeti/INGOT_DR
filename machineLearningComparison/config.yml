@@ -87,4 +87,4 @@ Models:
         timeLimit: 1800
     cv:
       lambda_p: [ 0.01, 0.1, 1, 10, 100 ]
-      lambda_n: [ 0.01, 0.1, 1, 10, 100 ]
+      lambda_z: [ 0.01, 0.1, 1, 10, 100 ]

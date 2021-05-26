@@ -29,17 +29,17 @@ class INGOTClassifier(BaseEstimator, ClassifierMixin):
     A class to represent INGOT-DR classifier
     """
 
-    def __init__(self, w_weight=1, lambda_p=1, lambda_n=1, lambda_e=1, false_positive_rate_upper_bound=None,
+    def __init__(self, w_weight=1, lambda_p=1, lambda_z=1, lambda_e=1, false_positive_rate_upper_bound=None,
                  false_negative_rate_upper_bound=None, max_rule_size=None, rounding_threshold=1e-5,
                  lp_relaxation=False, only_slack_lp_relaxation=False, lp_rounding_threshold=0,
                  is_it_noiseless=False, solver_name='PULP_CBC_CMD', solver_options=None):
         """
         Constructs all the necessary attributes for the classifier object.
         Parameters:
-            w_weight (vector, int, float): A vector, int or float to provide prior weight. Default to vector of 1.
-            lambda_p (int): Regularization coefficient for positive labels. Default to 1.
-            lambda_n (int): Regularization coefficient for negative labels. Default to 1.
-            lambda_e (int): Regularization coefficient for all slack variables. Default to 1.
+            w_weight (vector, float): A vector, float to provide prior weight. Default to vector of 1.
+            lambda_p (float): Regularization coefficient for positive labels. Default to 1.
+            lambda_z (float): Regularization coefficient for negative labels. Default to 1.
+            lambda_e (float): Regularization coefficient for all slack variables. Default to 1.
             false_positive_rate_upper_bound (float): False positive rate(FPR) upper bound. Default to None.
             false_negative_rate_upper_bound (float): False negative rate(FNR) upper bound. Default to None.
             max_rule_size (int): Maximum rule size. Default to None.
@@ -48,14 +48,14 @@ class INGOTClassifier(BaseEstimator, ClassifierMixin):
             only_slack_lp_relaxation (bool): A flag to only use the lp relaxed slack variables. Default to False.
             lp_rounding_threshold (float): Threshold for lp solutions for Rounding to 0 and 1. Default to 0.
             Range from 0 to 1.
-            is_it_noiseless (bool): A flag to specify whether the problem is noisy or noiseless. Default to True.
+            is_it_noiseless (bool): A flag to specify whether the problem is noisy or noiseless. Default to False.
             solver_name (str): Solver's name provided by Pulp. Default to 'PULP_CBC_CMD'.
             solver_options (dic): Solver's options provided by Pulp. Default to None.
         """
 
         self.lambda_e = lambda_e
         self.lambda_p = lambda_p
-        self.lambda_n = lambda_n
+        self.lambda_z = lambda_z
         try:
             assert isinstance(w_weight, (int, float, list))
             self.w_weight = w_weight
@@ -148,7 +148,7 @@ class INGOTClassifier(BaseEstimator, ClassifierMixin):
             p += pl.lpSum([self.w_weight * w[i] if isinstance(self.w_weight, (int, float)) else self.w_weight[i] * w[i]
                            for i in range(n)]) + \
                  pl.lpSum([self.lambda_e * self.lambda_p * ep[j] for j in positive_label]) + \
-                 pl.lpSum([self.lambda_e * self.lambda_n * en[k] for k in negative_label])
+                 pl.lpSum([self.lambda_e * self.lambda_z * en[k] for k in negative_label])
             # Constraints
             for i in positive_label:
                 p += pl.lpSum([A[i][j] * w[j] for j in range(n)] + ep[i]) >= 1
@@ -226,11 +226,11 @@ class INGOTClassifier(BaseEstimator, ClassifierMixin):
 
     def solution(self):
         """
-        Function to provide a vector of decoder solution.
+        Function to provide a vector of features importance.
         Parameters:
             self (INGOTClassifier): Classifier object.
         Returns:
-            w_solutions (vector): A vector of features values solution.
+            w_solutions (vector): A vector of features importance.
         """
         assert pl.LpStatus[self.prob_.status] != 'Infeasible', "Problem is {}! Set 'is_it_noiseless'" \
                                                                " argument to False. If there is still a problem you " \
