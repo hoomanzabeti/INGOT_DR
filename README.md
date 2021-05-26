@@ -20,3 +20,7 @@ print("Balanced accuracy: {}".format(balanced_accuracy_score(y_test, y_pred)))
 
 
 ```
+## Data
+```shell
+python DataPreprocessing/dataPreparation.py
+```

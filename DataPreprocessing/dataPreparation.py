@@ -1,12 +1,13 @@
 import os.path
-
 from sklearn.model_selection import train_test_split
-
-import utils
 from dataLoader import data_loader
 import pandas as pd
 import csv
-
+import os, sys
+currentdir = os.path.dirname(os.path.realpath(__file__))
+parentdir = os.path.dirname(currentdir)
+sys.path.append(parentdir)
+import utils
 
 def data_preparation(current_drug, current_model, isolate_name_path, snp_loc_path, feature_matrix_path,
                      label_path, output_dir, seed=33, test_size=0.2):
@@ -56,14 +57,15 @@ def data_preparation(current_drug, current_model, isolate_name_path, snp_loc_pat
 
 if __name__ == "__main__":
     # Files path
-    data_path = lambda d: os.path.join(os.path.dirname(os.getcwd()), d)
+    data_path = lambda d: os.path.join(os.path.dirname(os.path.dirname(os.path.realpath(__file__))), d)
     isolate_name_path = data_path('data/iso_list.csv')
     snp_loc_path = data_path('data/SNPList.csv')
     feature_matrix_path = data_path('data/sparsetableFeb27.npz')
     label_path = data_path('data/AllLabels.csv')
-    drug_list = ['amikacin', 'capreomycin', 'ciprofloxacin', 'ethambutol', 'ethionamide', 'isoniazid', 'kanamycin',
-                 'moxifloxacin', 'ofloxacin', 'pyrazinamide', 'rifampicin', 'streptomycin']
-    output_dir = os.path.dirname(os.getcwd())
+    # drug_list = ['amikacin', 'capreomycin', 'ciprofloxacin', 'ethambutol', 'ethionamide', 'isoniazid', 'kanamycin',
+    #              'moxifloxacin', 'ofloxacin', 'pyrazinamide', 'rifampicin', 'streptomycin']
+    drug_list = ['ciprofloxacin']
+    output_dir = os.getcwd()
     for drug in drug_list:
         data_preparation(current_drug=drug, current_model='kover', isolate_name_path=isolate_name_path,
                          snp_loc_path=snp_loc_path, feature_matrix_path=feature_matrix_path, label_path=label_path,

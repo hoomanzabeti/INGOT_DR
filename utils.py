@@ -297,4 +297,4 @@ if __name__ == '__main__':
     """
     Main method for testing config_reader
     """
-    print(config_reader('config.yml'))
+    print(config_reader('machineLearningComparison/config.yml'))
